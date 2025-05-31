@@ -1,0 +1,438 @@
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+// Global chart instance and series
+let chart = null; // In a real app, use IChartApi from 'lightweight-charts'
+let candlestickSeries = null; // In a real app, use ISeriesApi<'Candlestick'>
+const chartContainer = document.getElementById('chartContainer');
+const csvFileInput = document.getElementById('csvFile');
+const themeSelector = document.getElementById('themeSelector');
+// Theme definitions
+const themes = {
+    classic: {
+        chart: {
+            layout: {
+                background: { type: 'solid', color: '#191970' }, // Dark Blue
+                textColor: 'rgba(220, 220, 220, 0.9)',
+            },
+            grid: {
+                vertLines: { color: 'rgba(200, 200, 200, 0.3)' },
+                horzLines: { color: 'rgba(200, 200, 200, 0.3)' },
+            },
+        },
+        series: {
+            upColor: '#FFFFFF', // Inner white for positive
+            borderUpColor: '#000000', // Contour black for positive
+            wickUpColor: '#000000',
+            downColor: '#000000', // Inner black for negative
+            borderDownColor: '#FFFFFF', // Contour white for negative
+            wickDownColor: '#FFFFFF',
+        },
+    },
+    modern: {
+        chart: {
+            layout: {
+                background: { type: 'solid', color: '#FFFFFF' }, // White
+                textColor: 'rgba(33, 56, 77, 1)',
+            },
+            grid: {
+                vertLines: { color: 'rgba(230, 230, 230, 1)' },
+                horzLines: { color: 'rgba(230, 230, 230, 1)' },
+            },
+        },
+        series: {
+            upColor: '#26A69A', // Inner green for positive (TradingView green)
+            borderUpColor: '#FFFFFF', // Contour white for positive
+            wickUpColor: '#26A69A',
+            downColor: '#EF5350', // Inner red for negative (TradingView red)
+            borderDownColor: '#FFFFFF', // Contour white for negative
+            wickDownColor: '#EF5350',
+        },
+    },
+};
+// Add date parsing helper function
+function parseDate(dateStr) {
+    // Remove any extra whitespace
+    dateStr = dateStr.trim();
+    // Try different date formats
+    const formats = [
+        // DD/MM/YYYY
+        /^(\d{2})\/(\d{2})\/(\d{4})$/,
+        // DD-MM-YYYY
+        /^(\d{2})-(\d{2})-(\d{4})$/,
+        // YYYY-MM-DD
+        /^(\d{4})-(\d{2})-(\d{2})$/,
+        // YYYY/MM/DD
+        /^(\d{4})\/(\d{2})\/(\d{2})$/
+    ];
+    for (const format of formats) {
+        const match = dateStr.match(format);
+        if (match) {
+            if (format === formats[0] || format === formats[1]) {
+                // DD/MM/YYYY or DD-MM-YYYY
+                const [_, day, month, year] = match;
+                const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                if (!isNaN(date.getTime()))
+                    return date;
+            }
+            else {
+                // YYYY-MM-DD or YYYY/MM/DD
+                const [_, year, month, day] = match;
+                const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                if (!isNaN(date.getTime()))
+                    return date;
+            }
+        }
+    }
+    // If none of the formats match, try the default Date constructor as fallback
+    const date = new Date(dateStr);
+    return !isNaN(date.getTime()) ? date : null;
+}
+function parseCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    if (lines.length < 2) {
+        alert("CSV must have a header and at least one data row.");
+        return [];
+    }
+    const header = lines[0].split(',').map(h => h.trim());
+    const expectedHeaders = ["Date", "Opening", "Closing", "Variation", "Minimum", "Maximum"];
+    // Basic header validation
+    if (JSON.stringify(header) !== JSON.stringify(expectedHeaders)) {
+        alert(`CSV header mismatch. Expected: ${expectedHeaders.join(',')}\nGot: ${header.join(',')}`);
+        return [];
+    }
+    const data = [];
+    const invalidRows = [];
+    console.log('Starting to parse CSV data...');
+    console.log('Total lines:', lines.length);
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line)
+            continue; // Skip empty lines
+        // First split by comma, but handle the variation column specially
+        const parts = line.split(',');
+        if (parts.length < 6) {
+            console.warn(`Invalid number of columns in row ${i + 1}:`, parts);
+            invalidRows.push(i + 1);
+            continue;
+        }
+        try {
+            // Handle the first 3 columns normally
+            const dateStr = parts[0].trim();
+            const opening = parseFloat(parts[1].trim().replace(',', '.'));
+            const closing = parseFloat(parts[2].trim().replace(',', '.'));
+            // Handle variation column which may contain a comma
+            let variationStr = parts[3].trim();
+            let minIndex = 4;
+            // If variation contains a comma, combine with next part
+            if (parts.length > 6 && parts[4].trim().match(/^\d+$/)) {
+                variationStr += ',' + parts[4].trim();
+                minIndex = 5;
+            }
+            const variation = parseFloat(variationStr.replace(',', '.'));
+            // Get minimum and maximum values
+            const minimum = parseFloat(parts[minIndex].trim().replace(',', '.'));
+            const maximum = parseFloat(parts[minIndex + 1].trim().replace(',', '.'));
+            const dateObj = parseDate(dateStr);
+            if (!dateObj) {
+                console.warn(`Invalid date format in row ${i + 1}: ${dateStr}`);
+                invalidRows.push(i + 1);
+                continue;
+            }
+            // Validate numeric values
+            if (isNaN(opening) || isNaN(closing) || isNaN(variation) || isNaN(minimum) || isNaN(maximum)) {
+                console.warn(`Invalid numeric values in row ${i + 1}:`, { dateStr, opening, closing, variation, minimum, maximum });
+                invalidRows.push(i + 1);
+                continue;
+            }
+            // Validate that minimum and maximum make sense
+            if (minimum > maximum) {
+                console.warn(`Invalid price range in row ${i + 1}: minimum (${minimum}) > maximum (${maximum})`);
+                invalidRows.push(i + 1);
+                continue;
+            }
+            // Validate that opening and closing are within the range
+            if (opening < minimum || opening > maximum || closing < minimum || closing > maximum) {
+                console.warn(`Price out of range in row ${i + 1}:`, { opening, closing, minimum, maximum });
+                invalidRows.push(i + 1);
+                continue;
+            }
+            data.push({
+                Date: dateObj,
+                Opening: opening,
+                Closing: closing,
+                Variation: variation,
+                Minimum: minimum,
+                Maximum: maximum,
+            });
+            // Log the first few rows for debugging
+            if (i < 5) {
+                console.log('Parsed row:', {
+                    date: dateObj.toLocaleDateString(),
+                    opening,
+                    closing,
+                    variation,
+                    minimum,
+                    maximum
+                });
+            }
+        }
+        catch (error) {
+            console.error(`Error parsing row ${i + 1}:`, line, error);
+            invalidRows.push(i + 1);
+        }
+    }
+    // Report any invalid rows
+    if (invalidRows.length > 0) {
+        const message = `Warning: ${invalidRows.length} row(s) had invalid data and were skipped (rows: ${invalidRows.join(', ')}).`;
+        console.warn(message);
+        if (invalidRows.length < 10) { // Only show alert if there are few invalid rows
+            alert(message);
+        }
+    }
+    console.log('Successfully parsed data points:', data.length);
+    if (data.length > 0) {
+        console.log('Date range:', data[0].Date.toLocaleDateString(), 'to', data[data.length - 1].Date.toLocaleDateString());
+        console.log('Sample data point:', data[0]);
+    }
+    return data;
+}
+function formatDataForChart(data) {
+    const chartData = data
+        .map(item => ({
+        // Convert Date to Unix timestamp (seconds)
+        time: Math.floor(item.Date.getTime() / 1000),
+        open: item.Opening,
+        high: item.Maximum,
+        low: item.Minimum,
+        close: item.Closing,
+    }))
+        .sort((a, b) => a.time - b.time); // Sort by timestamp
+    console.log('Formatted chart data points:', chartData.length);
+    if (chartData.length > 0) {
+        console.log('Time range:', new Date(chartData[0].time * 1000).toLocaleDateString(), 'to', new Date(chartData[chartData.length - 1].time * 1000).toLocaleDateString());
+    }
+    return chartData;
+}
+function applyTheme(themeName) {
+    if (!chart || !candlestickSeries)
+        return;
+    const theme = themes[themeName];
+    chart.applyOptions(theme.chart);
+    candlestickSeries.applyOptions(theme.series);
+}
+function displayChart(data) {
+    if (!chartContainer)
+        return;
+    // Check if LightweightCharts is available
+    if (typeof LightweightCharts === 'undefined') {
+        console.error('LightweightCharts library not loaded');
+        chartContainer.innerHTML = 'Error: Chart library not loaded. Please refresh the page.';
+        return;
+    }
+    console.log('LightweightCharts version:', LightweightCharts.version);
+    console.log('LightweightCharts API:', Object.keys(LightweightCharts));
+    const chartData = formatDataForChart(data);
+    if (chartData.length === 0) {
+        chartContainer.innerHTML = 'No valid data to display.';
+        if (chart) {
+            chart.remove();
+            chart = null;
+        }
+        return;
+    }
+    try {
+        if (!chart) {
+            // Create chart with explicit options
+            const chartOptions = {
+                layout: Object.assign(Object.assign({}, themes.classic.chart.layout), { background: { type: 'solid', color: themes.classic.chart.layout.background.color } }),
+                grid: themes.classic.chart.grid,
+                width: chartContainer.clientWidth,
+                height: chartContainer.clientHeight,
+                timeScale: {
+                    timeVisible: true,
+                    secondsVisible: false,
+                    borderColor: 'rgba(197, 203, 206, 0.8)',
+                    rightOffset: 12,
+                    leftOffset: 12,
+                    barSpacing: 6,
+                    minBarSpacing: 2,
+                    fixLeftEdge: false,
+                    lockVisibleTimeRangeOnResize: false,
+                    rightBarStaysOnScroll: true,
+                    borderVisible: true,
+                    visible: true,
+                    timeUnit: 'day',
+                    tickMarkType: 1,
+                    allowBoldLabels: true,
+                    allowTickVisibleOverride: true,
+                    tickMarkFormatter: (time, tickMarkType, locale) => {
+                        const date = new Date(time * 1000);
+                        const month = date.toLocaleString(locale, { month: 'short' });
+                        const day = date.getDate();
+                        return `${month} ${day}`;
+                    },
+                },
+                rightPriceScale: {
+                    borderColor: 'rgba(197, 203, 206, 0.8)',
+                    scaleMargins: {
+                        top: 0.1,
+                        bottom: 0.1,
+                    },
+                    borderVisible: true,
+                    autoScale: true,
+                    mode: LightweightCharts.PriceScaleMode.Normal,
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                    vertLine: {
+                        width: 1,
+                        color: 'rgba(224, 227, 235, 0.4)',
+                        style: 0,
+                        visible: true,
+                        labelVisible: true,
+                    },
+                    horzLine: {
+                        width: 1,
+                        color: 'rgba(224, 227, 235, 0.4)',
+                        style: 0,
+                        visible: true,
+                        labelVisible: true,
+                    },
+                },
+            };
+            console.log('Creating chart with options:', chartOptions);
+            chart = LightweightCharts.createChart(chartContainer, chartOptions);
+            // Create series with explicit options
+            const seriesOptions = Object.assign(Object.assign({}, themes.classic.series), { priceFormat: {
+                    type: 'price',
+                    precision: 2,
+                    minMove: 0.01,
+                }, borderVisible: true, wickVisible: true, borderColor: themes.classic.series.borderUpColor, wickColor: themes.classic.series.wickUpColor, priceLineVisible: true, lastValueVisible: true, baseLineVisible: false });
+            console.log('Creating series with options:', seriesOptions);
+            candlestickSeries = chart.addCandlestickSeries(seriesOptions);
+            // Add resize handler
+            const resizeObserver = new ResizeObserver(entries => {
+                if (entries.length === 0 || entries[0].target !== chartContainer)
+                    return;
+                const newRect = entries[0].contentRect;
+                chart.applyOptions({
+                    width: newRect.width,
+                    height: newRect.height
+                });
+            });
+            resizeObserver.observe(chartContainer);
+        }
+        console.log('Setting chart data:', chartData);
+        candlestickSeries.setData(chartData);
+        // Set visible range to show all data with better initial spacing
+        const timeScale = chart.timeScale();
+        // Calculate the visible range
+        const firstBar = chartData[0];
+        const lastBar = chartData[chartData.length - 1];
+        const totalDays = (lastBar.time - firstBar.time) / (24 * 60 * 60);
+        // Calculate appropriate bar spacing based on data density
+        const containerWidth = chartContainer.clientWidth;
+        const availableWidth = containerWidth - 24; // Account for left/right offsets
+        const calculatedBarSpacing = Math.max(2, Math.min(6, availableWidth / totalDays));
+        // Update chart options with calculated spacing
+        chart.applyOptions({
+            timeScale: {
+                barSpacing: calculatedBarSpacing,
+                minBarSpacing: 2,
+            }
+        });
+        // Set the visible range with minimal padding
+        timeScale.setVisibleRange({
+            from: firstBar.time - (12 * 60 * 60), // Half day before first bar
+            to: lastBar.time + (12 * 60 * 60), // Half day after last bar
+        });
+        // Enable mouse wheel zoom
+        chart.applyOptions({
+            handleScroll: true,
+            handleScale: true,
+            mouseWheel: {
+                enabled: true,
+                zoomSpeed: 0.5,
+            },
+        });
+        // Apply theme after data is set
+        applyTheme(themeSelector.value);
+    }
+    catch (error) {
+        console.error('Error creating or updating chart:', error);
+        console.error('Chart object:', chart);
+        console.error('Series object:', candlestickSeries);
+        chartContainer.innerHTML = `Error creating chart: ${error instanceof Error ? error.message : String(error)}`;
+        if (chart) {
+            chart.remove();
+            chart = null;
+            candlestickSeries = null;
+        }
+    }
+}
+function loadDefaultData() {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const response = yield fetch('data/default.csv');
+            if (!response.ok) {
+                throw new Error(`Failed to load default.csv: ${response.statusText}`);
+            }
+            const csvText = yield response.text();
+            const data = parseCSV(csvText);
+            displayChart(data);
+        }
+        catch (error) {
+            console.error("Error loading default data:", error);
+            chartContainer.innerHTML = `Error loading default data: ${error instanceof Error ? error.message : String(error)}`;
+            alert(`Error loading default data: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+}
+function handleFileUpload(event) {
+    var _a;
+    const target = event.target;
+    const file = (_a = target.files) === null || _a === void 0 ? void 0 : _a[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            var _a;
+            const csvText = (_a = e.target) === null || _a === void 0 ? void 0 : _a.result;
+            const data = parseCSV(csvText);
+            if (data.length > 0) {
+                displayChart(data);
+            }
+            else if (chart) { // If parsing failed but chart exists, clear it or show message
+                chart.remove();
+                chart = null;
+                candlestickSeries = null;
+                chartContainer.innerHTML = 'Failed to parse CSV or CSV is empty. Please check the format and content.';
+            }
+        };
+        reader.onerror = () => {
+            alert("Error reading file.");
+            chartContainer.innerHTML = 'Error reading the uploaded file.';
+        };
+        reader.readAsText(file);
+    }
+}
+// Event Listeners
+csvFileInput.addEventListener('change', handleFileUpload);
+themeSelector.addEventListener('change', () => {
+    applyTheme(themeSelector.value);
+});
+// Initial load
+document.addEventListener('DOMContentLoaded', () => {
+    if (!chartContainer) {
+        console.error("Chart container not found!");
+        return;
+    }
+    loadDefaultData();
+});
