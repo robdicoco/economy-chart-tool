@@ -522,3 +522,155 @@ interface CandlestickData {
       }
       loadDefaultData();
   });
+
+interface OrderBookEntry {
+    order: number;
+    type: 'Buy' | 'Sell';
+    quantity: number;
+    price: number;
+}
+
+interface ProcessedOrderBook {
+    bids: OrderBookEntry[];
+    asks: OrderBookEntry[];
+    totalBids: number;
+    totalAsks: number;
+}
+
+// Tab Management
+function initializeTabs() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const tabId = button.getAttribute('data-tab');
+            
+            // Update active states
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabPanes.forEach(pane => pane.classList.remove('active'));
+            
+            button.classList.add('active');
+            document.getElementById(tabId!)?.classList.add('active');
+        });
+    });
+}
+
+// Order Book Processing
+async function loadDefaultBookData() {
+    try {
+        const response = await fetch('data/default_bookoffers.csv');
+        const csvText = await response.text();
+        processOrderBookData(csvText);
+    } catch (error) {
+        console.error('Error loading default book data:', error);
+        alert('Error loading default book data. Please try again.');
+    }
+}
+
+function processOrderBookData(csvText: string) {
+    const bookLoader = document.getElementById('bookLoader');
+    bookLoader?.classList.remove('hidden');
+
+    try {
+        const lines = csvText.split('\n').filter(line => line.trim());
+        const headers = lines[0].split(',');
+        
+        const orders: OrderBookEntry[] = lines.slice(1).map(line => {
+            const [order, type, quantity, price] = line.split(',');
+            return {
+                order: parseInt(order),
+                type: type as 'Buy' | 'Sell',
+                quantity: parseInt(quantity),
+                price: parseFloat(price.replace('"', '').replace('"', '').replace(',', '.'))
+            };
+        });
+
+        const processedBook = processOrders(orders);
+        displayOrderBook(processedBook);
+    } catch (error) {
+        console.error('Error processing order book data:', error);
+        alert('Error processing order book data. Please check the file format.');
+    } finally {
+        bookLoader?.classList.add('hidden');
+    }
+}
+
+function processOrders(orders: OrderBookEntry[]): ProcessedOrderBook {
+    const bids = orders.filter(order => order.type === 'Buy')
+        .sort((a, b) => b.price - a.price);
+    const asks = orders.filter(order => order.type === 'Sell')
+        .sort((a, b) => a.price - b.price);
+
+    const totalBids = bids.reduce((sum, order) => sum + order.quantity, 0);
+    const totalAsks = asks.reduce((sum, order) => sum + order.quantity, 0);
+
+    return { bids, asks, totalBids, totalAsks };
+}
+
+function displayOrderBook(book: ProcessedOrderBook) {
+    // Update summary
+    const totalBidsElement = document.getElementById('totalBids');
+    const totalAsksElement = document.getElementById('totalAsks');
+    const bidsFill = document.querySelector('.bids-fill') as HTMLElement;
+    const asksFill = document.querySelector('.asks-fill') as HTMLElement;
+
+    if (totalBidsElement) totalBidsElement.textContent = book.totalBids.toString();
+    if (totalAsksElement) totalAsksElement.textContent = book.totalAsks.toString();
+
+    const total = book.totalBids + book.totalAsks;
+    if (bidsFill) bidsFill.style.width = `${(book.totalBids / total) * 100}%`;
+    if (asksFill) asksFill.style.width = `${(book.totalAsks / total) * 100}%`;
+
+    // Update tables
+    updateOrderTable('bidsTable', book.bids);
+    updateOrderTable('asksTable', book.asks);
+}
+
+function updateOrderTable(tableId: string, orders: OrderBookEntry[]) {
+    const tbody = document.querySelector(`#${tableId} tbody`);
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    let runningTotal = 0;
+
+    orders.forEach(order => {
+        runningTotal += order.quantity;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="price">${order.price.toFixed(2)}</td>
+            <td>${order.quantity}</td>
+            <td>${runningTotal}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+    // ... existing initialization code ...
+
+    // Initialize tabs
+    initializeTabs();
+
+    // Order Book Event Listeners
+    const loadDefaultBookBtn = document.getElementById('loadDefaultBookBtn');
+    const bookCsvFileInput = document.getElementById('bookCsvFileInput') as HTMLInputElement;
+
+    loadDefaultBookBtn?.addEventListener('click', loadDefaultBookData);
+
+    bookCsvFileInput?.addEventListener('change', (event) => {
+        const file = (event.target as HTMLInputElement).files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const csvText = e.target?.result as string;
+                processOrderBookData(csvText);
+            };
+            reader.readAsText(file);
+        }
+    });
+
+    // Load default book data on startup
+    loadDefaultBookData();
+});

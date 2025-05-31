@@ -13,27 +13,103 @@
         <h1>Economy Chart Tool</h1>
     </header>
 
-    <div class="controls">
-        <div>
-            <label for="csvFile">Load CSV File:</label>
-            <input type="file" id="csvFile" accept=".csv">
-        </div>
-        <div>
-            <label for="themeSelector">Select Theme:</label>
-            <select id="themeSelector">
-                <option value="classic">Classic</option>
-                <option value="modern">Modern</option>
-            </select>
-        </div>
+    <div class="tabs">
+        <button class="tab-button active" data-tab="market-view">Market View</button>
+        <button class="tab-button" data-tab="book-viewer">Book Viewer</button>
     </div>
 
-    <div class="chart-section">
-        <h2>Candle Stick Viewer</h2>
-        <div id="loader" class="loader hidden">
-            <div class="loader-spinner"></div>
-            <div class="loader-text">Loading data...</div>
+    <div class="tab-content">
+        <!-- Market View Tab -->
+        <div id="market-view" class="tab-pane active">
+            <div class="controls">
+                <div class="control-group">
+                    <button id="loadDefaultBtn">Load Default Data</button>
+                    <input type="file" id="csvFileInput" accept=".csv">
+                    <label for="csvFileInput" class="file-input-label">Load CSV File</label>
+                </div>
+                <div class="control-group">
+                    <label for="themeSelect">Select Theme:</label>
+                    <select id="themeSelect">
+                        <option value="classic">Classic</option>
+                        <option value="modern">Modern</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="chart-section">
+                <h2>Candle Stick Viewer</h2>
+                <div id="loader" class="loader hidden">
+                    <div class="spinner"></div>
+                    <p>Loading data...</p>
+                </div>
+                <div id="chartContainer"></div>
+            </div>
         </div>
-        <div id="chartContainer"></div>
+
+        <!-- Book Viewer Tab -->
+        <div id="book-viewer" class="tab-pane">
+            <div class="controls">
+                <div class="control-group">
+                    <button id="loadDefaultBookBtn">Load Default Book Data</button>
+                    <input type="file" id="bookCsvFileInput" accept=".csv">
+                    <label for="bookCsvFileInput" class="file-input-label">Load Book CSV File</label>
+                </div>
+            </div>
+
+            <div class="book-section">
+                <h2>Order Book Viewer</h2>
+                <div id="bookLoader" class="loader hidden">
+                    <div class="spinner"></div>
+                    <p>Loading order book data...</p>
+                </div>
+                
+                <div class="order-book-summary">
+                    <div class="summary-item">
+                        <h3>Total Bids</h3>
+                        <div class="summary-value" id="totalBids">0</div>
+                        <div class="summary-bar">
+                            <div class="bar-fill bids-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <h3>Total Asks</h3>
+                        <div class="summary-value" id="totalAsks">0</div>
+                        <div class="summary-bar">
+                            <div class="bar-fill asks-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="order-book-container">
+                    <div class="order-book-column asks">
+                        <h3>Asks (Sell Orders)</h3>
+                        <table id="asksTable">
+                            <thead>
+                                <tr>
+                                    <th>Price</th>
+                                    <th>Quantity</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="order-book-column bids">
+                        <h3>Bids (Buy Orders)</h3>
+                        <table id="bidsTable">
+                            <thead>
+                                <tr>
+                                    <th>Price</th>
+                                    <th>Quantity</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="dist/main.js"></script>
