@@ -2,6 +2,10 @@
 
 A modern web application for visualizing financial data using candlestick charts. Built with TypeScript and the Lightweight Charts library.
 
+## Live Demo
+
+Check out the live application: [Economy Chart Tool](https://robdicoco.github.io/economy-chart-tool/)
+
 ## Features
 
 - **Interactive Candlestick Charts**
