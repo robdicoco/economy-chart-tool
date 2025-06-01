@@ -603,10 +603,35 @@ function processOrderBookData(csvText: string) {
 }
 
 function processOrders(orders: OrderBookEntry[]): ProcessedOrderBook {
-    const bids = orders.filter(order => order.type === 'Buy')
-        .sort((a, b) => b.price - a.price);
-    const asks = orders.filter(order => order.type === 'Sell')
-        .sort((a, b) => a.price - b.price);
+    // Create maps to aggregate orders by price
+    const bidsMap = new Map<number, number>();
+    const asksMap = new Map<number, number>();
+
+    // Aggregate orders by price
+    orders.forEach(order => {
+        const map = order.type === 'Buy' ? bidsMap : asksMap;
+        const currentQuantity = map.get(order.price) || 0;
+        map.set(order.price, currentQuantity + order.quantity);
+    });
+
+    // Convert maps to arrays of OrderBookEntry
+    const bids = Array.from(bidsMap.entries())
+        .map(([price, quantity]) => ({
+            order: 0, // Order number is not relevant for aggregated entries
+            type: 'Buy' as const,
+            quantity,
+            price
+        }))
+        .sort((a, b) => b.price - a.price); // Sort bids in descending order
+
+    const asks = Array.from(asksMap.entries())
+        .map(([price, quantity]) => ({
+            order: 0, // Order number is not relevant for aggregated entries
+            quantity,
+            type: 'Sell' as const,
+            price
+        }))
+        .sort((a, b) => a.price - b.price); // Sort asks in ascending order
 
     const totalBids = bids.reduce((sum, order) => sum + order.quantity, 0);
     const totalAsks = asks.reduce((sum, order) => sum + order.quantity, 0);
