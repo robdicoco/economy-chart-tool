@@ -90,6 +90,10 @@ const themes = {
 let chart: any = null;
 let candlestickSeries: any = null;
 
+// Add Chart.js types (for TS, but will work with CDN)
+declare var Chart: any;
+let supplyDemandChartInstance: any = null;
+
 // Helper functions
 function parseDate(dateStr: string): Date | null {
     // Remove any extra whitespace
@@ -803,248 +807,129 @@ function parseSupplyDemandCSV(csvText: string): SupplyDemandData[] {
 }
 
 function displaySupplyDemandGraph(data: SupplyDemandData[], elements: ChartElements) {
-    if (!elements.supplyDemandContainer) {
-        console.error('Supply and demand container not found');
+    const canvas = document.getElementById('supplyDemandChart') as HTMLCanvasElement;
+    if (!canvas) {
+        console.error('Supply and Demand canvas not found');
         return;
     }
 
-    console.log('Creating supply and demand graph with data:', data);
+    // Prepare data for Chart.js
+    const demandPoints = data
+        .filter(item => typeof item.price === 'number' && typeof item.quantityDemanded === 'number' && !isNaN(item.price) && !isNaN(item.quantityDemanded))
+        .map(item => ({ x: item.price, y: item.quantityDemanded }))
+        .sort((a, b) => a.x - b.x);
+    const supplyPoints = data
+        .filter(item => typeof item.price === 'number' && typeof item.quantitySupplied === 'number' && !isNaN(item.price) && !isNaN(item.quantitySupplied))
+        .map(item => ({ x: item.price, y: item.quantitySupplied }))
+        .sort((a, b) => a.x - b.x);
 
-    // Check if LightweightCharts is available
-    if (typeof LightweightCharts === 'undefined') {
-        console.error('LightweightCharts library not loaded');
-        elements.supplyDemandContainer.innerHTML = 'Error: Chart library not loaded. Please refresh the page.';
-        return;
+    // Find equilibrium point
+    const equilibrium = findEquilibriumPoint(data);
+    let equilibriumPoint = null;
+    if (equilibrium) {
+        equilibriumPoint = { x: equilibrium.price, y: equilibrium.quantity };
+        if (elements.equilibriumPrice) elements.equilibriumPrice.textContent = `R$ ${equilibrium.price}`;
+        if (elements.equilibriumQuantity) elements.equilibriumQuantity.textContent = `${equilibrium.quantity} tons`;
     }
 
-    try {
-        // Clear previous chart if it exists
-        elements.supplyDemandContainer.innerHTML = '';
-        
-        // Prepare data for the chart - price on X-axis, quantity on Y-axis
-        console.log('Preparing chart data...');
-        const demandData = data
-            .filter(item => 
-                typeof item.price === 'number' && 
-                typeof item.quantityDemanded === 'number' && 
-                !isNaN(item.price) && 
-                !isNaN(item.quantityDemanded)
-            )
-            .map(item => ({
-                time: item.price,           // Price on X-axis
-                value: item.quantityDemanded // Quantity on Y-axis
-            }))
-            .sort((a, b) => a.time - b.time);
-
-        const supplyData = data
-            .filter(item => 
-                typeof item.price === 'number' && 
-                typeof item.quantitySupplied === 'number' && 
-                !isNaN(item.price) && 
-                !isNaN(item.quantitySupplied)
-            )
-            .map(item => ({
-                time: item.price,           // Price on X-axis
-                value: item.quantitySupplied // Quantity on Y-axis
-            }))
-            .sort((a, b) => a.time - b.time);
-
-        console.log('Demand data points:', demandData);
-        console.log('Supply data points:', supplyData);
-
-        // Calculate ranges before creating the chart
-        const allPrices = [...demandData, ...supplyData].map(d => d.time);
-        const allQuantities = [...demandData, ...supplyData].map(d => d.value);
-        const minPrice = Math.min(...allPrices);
-        const maxPrice = Math.max(...allPrices);
-        const maxQuantity = Math.max(...allQuantities);
-
-        console.log('Price range:', { minPrice, maxPrice });
-        console.log('Max quantity:', maxQuantity);
-        
-        // Create chart with calculated dimensions
-        console.log('Creating chart...');
-        const chart = LightweightCharts.createChart(elements.supplyDemandContainer, {
-            layout: {
-                background: { type: 'solid', color: '#191970' },
-                textColor: 'rgba(220, 220, 220, 0.9)',
-            },
-            grid: {
-                vertLines: { color: 'rgba(200, 200, 200, 0.3)' },
-                horzLines: { color: 'rgba(200, 200, 200, 0.3)' },
-            },
-            width: elements.supplyDemandContainer.clientWidth,
-            height: elements.supplyDemandContainer.clientHeight,
-            rightPriceScale: {
-                borderColor: 'rgba(197, 203, 206, 0.8)',
-                scaleMargins: {
-                    top: 0.1,
-                    bottom: 0.1,
-                },
-                title: 'Quantity (tons)',
-                autoScale: false,
-                mode: LightweightCharts.PriceScaleMode.Normal,
-                minimum: 0,
-                maximum: maxQuantity + 10,
-                borderVisible: true,
-                visible: true,
-                drawTicks: true,
-                tickMarkFormatter: (price: number) => {
-                    return Math.round(price).toString();
-                },
-            },
-            leftPriceScale: {
-                visible: false,
-            },
-            timeScale: {
-                title: 'Price (R$)',
-                timeVisible: false,
-                secondsVisible: false,
-                borderColor: 'rgba(197, 203, 206, 0.8)',
-                tickMarkFormatter: (time: number) => {
-                    return time.toFixed(2);
-                },
-                minBarSpacing: 50,
-                rightOffset: 12,
-                leftOffset: 12,
-                borderVisible: true,
-                visible: true,
-            },
-            crosshair: {
-                mode: LightweightCharts.CrosshairMode.Normal,
-                vertLine: {
-                    width: 1,
-                    color: 'rgba(224, 227, 235, 0.4)',
-                    style: 0,
-                    visible: true,
-                    labelVisible: true,
-                },
-                horzLine: {
-                    width: 1,
-                    color: 'rgba(224, 227, 235, 0.4)',
-                    style: 0,
-                    visible: true,
-                    labelVisible: true,
-                },
-            },
-        });
-
-        // Create series for demand and supply
-        const demandSeries = chart.addLineSeries({
-            color: '#4CAF50',
-            lineWidth: 2,
-            title: 'Demand',
-            priceFormat: {
-                type: 'price',
-                precision: 0,
-                minMove: 1,
-            },
-            lastValueVisible: true,
-            priceLineVisible: true,
-            priceScaleId: 'right',
-            lineType: 0, // Solid line
-            crosshairMarkerVisible: true,
-            crosshairMarkerRadius: 4,
-            crosshairMarkerBorderColor: '#4CAF50',
-            crosshairMarkerBackgroundColor: '#4CAF50',
-        });
-
-        const supplySeries = chart.addLineSeries({
-            color: '#f44336',
-            lineWidth: 2,
-            title: 'Supply',
-            priceFormat: {
-                type: 'price',
-                precision: 0,
-                minMove: 1,
-            },
-            lastValueVisible: true,
-            priceLineVisible: true,
-            priceScaleId: 'right',
-            lineType: 0, // Solid line
-            crosshairMarkerVisible: true,
-            crosshairMarkerRadius: 4,
-            crosshairMarkerBorderColor: '#f44336',
-            crosshairMarkerBackgroundColor: '#f44336',
-        });
-
-        // Set data
-        console.log('Setting chart data...');
-        demandSeries.setData(demandData);
-        supplySeries.setData(supplyData);
-
-        // Find and display equilibrium point
-        const equilibrium = findEquilibriumPoint(data);
-        if (equilibrium) {
-            console.log('Equilibrium point:', equilibrium);
-            // Update equilibrium info display
-            if (elements.equilibriumPrice) {
-                elements.equilibriumPrice.textContent = `R$ ${equilibrium.price}`;
-            }
-            if (elements.equilibriumQuantity) {
-                elements.equilibriumQuantity.textContent = `${equilibrium.quantity} tons`;
-            }
-
-            // Add equilibrium point marker
-            const equilibriumSeries = chart.addLineSeries({
-                color: '#FFD700',
-                lineWidth: 1,
-                lineStyle: 2, // Dashed line
-                title: 'Equilibrium',
-                priceScaleId: 'right',
-                crosshairMarkerVisible: true,
-                crosshairMarkerRadius: 6,
-                crosshairMarkerBorderColor: '#FFD700',
-                crosshairMarkerBackgroundColor: '#FFD700',
-            });
-
-            equilibriumSeries.setData([
-                { time: equilibrium.price, value: equilibrium.quantity },
-            ]);
-        }
-
-        // Set visible range after data is set
-        console.log('Setting visible range...');
-        chart.timeScale().setVisibleRange({
-            from: 0,
-            to: maxPrice + 1,
-        });
-
-        // After setting data, explicitly set the price scale
-        console.log('Setting price scale...');
-        chart.priceScale('right').applyOptions({
-            autoScale: false,
-            scaleMargins: {
-                top: 0.1,
-                bottom: 0.1,
-            },
-            minimum: 0,
-            maximum: maxQuantity + 10,
-            borderVisible: true,
-            visible: true,
-            drawTicks: true,
-            tickMarkFormatter: (price: number) => {
-                return Math.round(price).toString();
-            },
-        });
-
-        // Add resize handler
-        const resizeObserver = new ResizeObserver(entries => {
-            if (entries.length === 0 || entries[0].target !== elements.supplyDemandContainer) return;
-            const newRect = entries[0].contentRect;
-            chart.applyOptions({ 
-                width: newRect.width,
-                height: newRect.height 
-            });
-        });
-        resizeObserver.observe(elements.supplyDemandContainer);
-
-    } catch (error) {
-        console.error('Error creating supply and demand chart:', error);
-        if (elements.supplyDemandContainer) {
-            elements.supplyDemandContainer.innerHTML = `Error creating chart: ${error instanceof Error ? error.message : String(error)}`;
-        }
+    // Destroy previous chart instance if exists
+    if (supplyDemandChartInstance) {
+        supplyDemandChartInstance.destroy();
     }
+
+    // Chart.js config
+    supplyDemandChartInstance = new Chart(canvas, {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: 'Demand',
+                    data: demandPoints,
+                    borderColor: '#4CAF50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    fill: false,
+                    tension: 0,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#4CAF50',
+                    borderWidth: 2,
+                    order: 1,
+                },
+                {
+                    label: 'Supply',
+                    data: supplyPoints,
+                    borderColor: '#f44336',
+                    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                    fill: false,
+                    tension: 0,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#f44336',
+                    borderWidth: 2,
+                    order: 1,
+                },
+                equilibriumPoint ? {
+                    label: 'Equilibrium',
+                    data: [equilibriumPoint],
+                    borderColor: '#FFD700',
+                    backgroundColor: '#FFD700',
+                    pointRadius: 7,
+                    type: 'scatter',
+                    showLine: false,
+                    order: 2,
+                } : null
+            ].filter(Boolean),
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                },
+                tooltip: {
+                    mode: 'nearest',
+                    intersect: false,
+                },
+                title: {
+                    display: false,
+                },
+            },
+            scales: {
+                x: {
+                    type: 'linear',
+                    title: {
+                        display: true,
+                        text: 'Price (R$)',
+                        color: '#fff',
+                        font: { weight: 'bold', size: 16 },
+                    },
+                    ticks: {
+                        color: '#fff',
+                        callback: function(value: any) { return 'R$ ' + value; },
+                    },
+                    grid: {
+                        color: 'rgba(200,200,255,0.2)',
+                    },
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Quantity (tons)',
+                        color: '#fff',
+                        font: { weight: 'bold', size: 16 },
+                    },
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#fff',
+                        stepSize: 10,
+                    },
+                    grid: {
+                        color: 'rgba(200,200,255,0.2)',
+                    },
+                },
+            },
+        },
+    });
 }
 
 function findEquilibriumPoint(data: SupplyDemandData[]): EquilibriumPoint | null {

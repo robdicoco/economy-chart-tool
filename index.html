@@ -131,7 +131,9 @@
                     <div class="spinner"></div>
                     <p>Loading supply and demand data...</p>
                 </div>
-                <div id="supplyDemandContainer"></div>
+                <div id="supplyDemandContainer" class="supply-demand-container">
+                    <canvas id="supplyDemandChart" width="800" height="400"></canvas>
+                </div>
                 <div class="equilibrium-info">
                     <h3>Equilibrium Point</h3>
                     <div class="equilibrium-details">
@@ -150,5 +152,6 @@
     </div>
 
     <script src="dist/main.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </body>
 </html>
