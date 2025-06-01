@@ -673,6 +673,8 @@ function displaySupplyDemandGraph(data, elements) {
                     bottom: 0.1,
                 },
                 title: 'Quantity (tons)',
+                autoScale: true,
+                mode: LightweightCharts.PriceScaleMode.Normal,
             },
             leftPriceScale: {
                 visible: false,
@@ -682,6 +684,9 @@ function displaySupplyDemandGraph(data, elements) {
                 timeVisible: false,
                 secondsVisible: false,
                 borderColor: 'rgba(197, 203, 206, 0.8)',
+                tickMarkFormatter: (time) => {
+                    return time.toFixed(2);
+                },
             },
         });
         // Create series for demand and supply
@@ -751,6 +756,27 @@ function displaySupplyDemandGraph(data, elements) {
                 { time: equilibrium.price, value: equilibrium.quantity },
             ]);
         }
+        // Calculate visible range
+        const allPrices = [...demandData, ...supplyData].map(d => d.time);
+        const allQuantities = [...demandData, ...supplyData].map(d => d.value);
+        const minPrice = Math.min(...allPrices);
+        const maxPrice = Math.max(...allPrices);
+        const maxQuantity = Math.max(...allQuantities);
+        // Set visible range with padding
+        chart.timeScale().setVisibleRange({
+            from: 0, // Start from 0
+            to: maxPrice + 1, // Add 1 to max price for padding
+        });
+        // Set price scale range
+        chart.priceScale('right').applyOptions({
+            autoScale: false,
+            scaleMargins: {
+                top: 0.1,
+                bottom: 0.1,
+            },
+            minimum: 0,
+            maximum: maxQuantity + 10, // Add 10 to max quantity for padding
+        });
         // Add resize handler
         const resizeObserver = new ResizeObserver(entries => {
             if (entries.length === 0 || entries[0].target !== elements.supplyDemandContainer)
