@@ -1,60 +1,88 @@
 # Economy Chart Tool
 
-A modern web application for visualizing financial data using candlestick charts. Built with TypeScript and the Lightweight Charts library.
+A modern web application for visualizing financial market data, featuring both candlestick charts and order book visualization. The tool provides an intuitive interface for analyzing market data with real-time updates and interactive features.
 
 ## Live Demo
 
-Check out the live application: [Economy Chart Tool](https://robdicoco.github.io/economy-chart-tool/)
+[Try the Economy Chart Tool](https://your-demo-link-here)
 
 ## Features
 
-- **Interactive Candlestick Charts**
+### Market View
+- **Interactive Candlestick Chart**
   - Daily candlestick visualization
   - Zoom and pan capabilities
+  - Crosshair for precise data reading
+  - Customizable time scale
   - Responsive design
-  - Customizable themes
 
 - **Data Management**
-  - Load default CSV data
+  - Load default market data
   - Upload custom CSV files
-  - Automatic data validation and parsing
+  - Automatic data validation and error handling
   - Support for multiple date formats
 
-- **User Interface**
-  - Clean, modern design
-  - Dark and light themes
-  - Loading indicators
-  - Error handling and user feedback
+- **Theme Options**
+  - Classic theme (dark mode)
+  - Modern theme (light mode)
+  - Consistent styling across all components
+
+### Order Book Viewer
+- **Order Book Distribution**
+  - Visual representation of bid/ask distribution
+  - Interactive bar graph with tooltips
+  - Real-time percentage calculations
+  - Color-coded indicators (green for bids, red for asks)
+
+- **Order Book Tables**
+  - Separate tables for bids and asks
+  - Price, quantity, and running total columns
+  - Sortable by price
+  - Color-coded price indicators
+  - Responsive table design
+
+- **Data Management**
+  - Load default order book data
+  - Upload custom order book CSV files
+  - Real-time updates
+  - Data validation and error handling
 
 ## CSV Format Requirements
 
-The application expects CSV files with the following format:
-```csv
-Date,Opening,Closing,Variation,Minimum,Maximum
-```
+### Market Data CSV
+Required columns:
+- Date (supports formats: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, YYYY/MM/DD)
+- Opening
+- Closing
+- Variation
+- Minimum
+- Maximum
 
 Example:
 ```csv
-28/05/2025,138.136,138.888,-0,47,138.580,139.547
+Date,Opening,Closing,Variation,Minimum,Maximum
+2024-01-01,100.50,101.20,0.70,100.00,101.50
 ```
 
-### Supported Date Formats
-- DD/MM/YYYY
-- DD-MM-YYYY
-- YYYY-MM-DD
-- YYYY/MM/DD
+### Order Book CSV
+Required columns:
+- Order (order number)
+- Type (Buy/Sell)
+- Quantity
+- Price
 
-### Data Validation
-- Validates date formats
-- Ensures numeric values are valid
-- Checks price ranges (minimum ≤ maximum)
-- Verifies opening/closing prices are within range
+Example:
+```csv
+Order,Type,Quantity,Price
+1,Buy,100,50.25
+2,Sell,50,50.30
+```
 
 ## Setup and Installation
 
 1. Clone the repository:
 ```bash
-git clone [repository-url]
+git clone https://github.com/yourusername/economy-chart-tool.git
 cd economy-chart-tool
 ```
 
@@ -73,76 +101,36 @@ npm run build
 npm start
 ```
 
-## Usage
-
-1. **Loading Data**
-   - The application automatically loads default data on startup
-   - Use the "Load CSV File" button to upload custom data
-   - Supported file format: CSV
-
-2. **Chart Interaction**
-   - **Zoom**: Use mouse wheel or pinch gesture
-   - **Pan**: Click and drag
-   - **Reset View**: Double-click
-   - **Theme Switch**: Use the theme selector dropdown
-
-3. **Theme Options**
-   - **Classic**: Dark blue background with white/black candlesticks
-   - **Modern**: White background with green/red candlesticks
+The application will be available at `http://localhost:3000`
 
 ## Technical Details
 
-### Built With
-- TypeScript
-- Lightweight Charts (v3.8.0)
-- Modern CSS
-- HTML5
-
-### Project Structure
-```
-economy-chart-tool/
-├── public/
-│   └── favicon.svg
-├── src/
-│   └── main.ts
-├── dist/
-│   └── main.js
-├── data/
-│   └── default.csv
-├── index.html
-├── style.css
-└── README.md
-```
-
-### Key Features
-- Type-safe development with TypeScript
-- Responsive and mobile-friendly design
-- Efficient data parsing and validation
-- Smooth animations and transitions
-- Error handling and user feedback
-- Custom SVG favicon
+- Built with TypeScript
+- Uses Lightweight Charts library (v3.8.0) for candlestick visualization
+- Responsive design with modern CSS
+- Modular code structure
+- Type-safe implementation
 
 ## Browser Support
 
-The application works in all modern browsers that support:
-- ES6+ JavaScript
-- CSS Grid and Flexbox
-- SVG
-- File API
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
+- Edge (latest)
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
 - [Lightweight Charts](https://github.com/tradingview/lightweight-charts) for the charting library
-- TradingView for inspiration in chart design
+- All contributors who have helped improve this tool

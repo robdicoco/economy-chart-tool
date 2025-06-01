@@ -521,7 +521,7 @@ function processOrders(orders) {
     return { bids, asks, totalBids, totalAsks };
 }
 function displayOrderBook(book) {
-    // Update summary
+    // Update summary values
     const totalBidsElement = document.getElementById('totalBids');
     const totalAsksElement = document.getElementById('totalAsks');
     const bidsFill = document.querySelector('.bids-fill');
@@ -531,10 +531,17 @@ function displayOrderBook(book) {
     if (totalAsksElement)
         totalAsksElement.textContent = book.totalAsks.toString();
     const total = book.totalBids + book.totalAsks;
-    if (bidsFill)
-        bidsFill.style.width = `${(book.totalBids / total) * 100}%`;
-    if (asksFill)
-        asksFill.style.width = `${(book.totalAsks / total) * 100}%`;
+    const bidsPercentage = (book.totalBids / total) * 100;
+    const asksPercentage = (book.totalAsks / total) * 100;
+    // Update bar widths and tooltips
+    if (bidsFill) {
+        bidsFill.style.width = `${bidsPercentage}%`;
+        bidsFill.setAttribute('data-tooltip', `Bids: ${bidsPercentage.toFixed(1)}%`);
+    }
+    if (asksFill) {
+        asksFill.style.width = `${asksPercentage}%`;
+        asksFill.setAttribute('data-tooltip', `Asks: ${asksPercentage.toFixed(1)}%`);
+    }
     // Update tables
     updateOrderTable('bidsTable', book.bids);
     updateOrderTable('asksTable', book.asks);
