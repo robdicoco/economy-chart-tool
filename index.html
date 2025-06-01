@@ -65,17 +65,20 @@
                 
                 <div class="order-book-summary">
                     <div class="summary-item">
-                        <h3>Total Bids</h3>
-                        <div class="summary-value" id="totalBids">0</div>
-                        <div class="summary-bar">
-                            <div class="bar-fill bids-fill" style="width: 0%"></div>
+                        <h3>Order Book Distribution</h3>
+                        <div class="summary-values">
+                            <div class="summary-value bids">
+                                <span>Bids:</span>
+                                <span id="totalBids">0</span>
+                            </div>
+                            <div class="summary-value asks">
+                                <span>Asks:</span>
+                                <span id="totalAsks">0</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="summary-item">
-                        <h3>Total Asks</h3>
-                        <div class="summary-value" id="totalAsks">0</div>
                         <div class="summary-bar">
-                            <div class="bar-fill asks-fill" style="width: 0%"></div>
+                            <div class="bar-fill bids-fill" data-tooltip="Bids: 0%"></div>
+                            <div class="bar-fill asks-fill" data-tooltip="Asks: 0%"></div>
                         </div>
                     </div>
                 </div>

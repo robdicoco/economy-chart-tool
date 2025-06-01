@@ -8,12 +8,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-// Global chart instance and series
-let chart = null; // In a real app, use IChartApi from 'lightweight-charts'
-let candlestickSeries = null; // In a real app, use ISeriesApi<'Candlestick'>
-const chartContainer = document.getElementById('chartContainer');
-const csvFileInput = document.getElementById('csvFile');
-const themeSelector = document.getElementById('themeSelector');
 // Theme definitions
 const themes = {
     classic: {
@@ -57,7 +51,10 @@ const themes = {
         },
     },
 };
-// Add date parsing helper function
+// Application state
+let chart = null;
+let candlestickSeries = null;
+// Helper functions
 function parseDate(dateStr) {
     // Remove any extra whitespace
     dateStr = dateStr.trim();
@@ -228,20 +225,21 @@ function applyTheme(themeName) {
     chart.applyOptions(theme.chart);
     candlestickSeries.applyOptions(theme.series);
 }
-function displayChart(data) {
-    if (!chartContainer)
+// Update function signatures
+function displayChart(data, elements) {
+    if (!elements.chartContainer)
         return;
     // Check if LightweightCharts is available
     if (typeof LightweightCharts === 'undefined') {
         console.error('LightweightCharts library not loaded');
-        chartContainer.innerHTML = 'Error: Chart library not loaded. Please refresh the page.';
+        elements.chartContainer.innerHTML = 'Error: Chart library not loaded. Please refresh the page.';
         return;
     }
     console.log('LightweightCharts version:', LightweightCharts.version);
     console.log('LightweightCharts API:', Object.keys(LightweightCharts));
     const chartData = formatDataForChart(data);
     if (chartData.length === 0) {
-        chartContainer.innerHTML = 'No valid data to display.';
+        elements.chartContainer.innerHTML = 'No valid data to display.';
         if (chart) {
             chart.remove();
             chart = null;
@@ -254,8 +252,8 @@ function displayChart(data) {
             const chartOptions = {
                 layout: Object.assign(Object.assign({}, themes.classic.chart.layout), { background: { type: 'solid', color: themes.classic.chart.layout.background.color } }),
                 grid: themes.classic.chart.grid,
-                width: chartContainer.clientWidth,
-                height: chartContainer.clientHeight,
+                width: elements.chartContainer.clientWidth,
+                height: elements.chartContainer.clientHeight,
                 timeScale: {
                     timeVisible: true,
                     secondsVisible: false,
@@ -309,7 +307,7 @@ function displayChart(data) {
                 },
             };
             console.log('Creating chart with options:', chartOptions);
-            chart = LightweightCharts.createChart(chartContainer, chartOptions);
+            chart = LightweightCharts.createChart(elements.chartContainer, chartOptions);
             // Create series with explicit options
             const seriesOptions = Object.assign(Object.assign({}, themes.classic.series), { priceFormat: {
                     type: 'price',
@@ -320,7 +318,7 @@ function displayChart(data) {
             candlestickSeries = chart.addCandlestickSeries(seriesOptions);
             // Add resize handler
             const resizeObserver = new ResizeObserver(entries => {
-                if (entries.length === 0 || entries[0].target !== chartContainer)
+                if (entries.length === 0 || entries[0].target !== elements.chartContainer)
                     return;
                 const newRect = entries[0].contentRect;
                 chart.applyOptions({
@@ -328,7 +326,7 @@ function displayChart(data) {
                     height: newRect.height
                 });
             });
-            resizeObserver.observe(chartContainer);
+            resizeObserver.observe(elements.chartContainer);
         }
         console.log('Setting chart data:', chartData);
         candlestickSeries.setData(chartData);
@@ -339,7 +337,7 @@ function displayChart(data) {
         const lastBar = chartData[chartData.length - 1];
         const totalDays = (lastBar.time - firstBar.time) / (24 * 60 * 60);
         // Calculate appropriate bar spacing based on data density
-        const containerWidth = chartContainer.clientWidth;
+        const containerWidth = elements.chartContainer.clientWidth;
         const availableWidth = containerWidth - 24; // Account for left/right offsets
         const calculatedBarSpacing = Math.max(2, Math.min(6, availableWidth / totalDays));
         // Update chart options with calculated spacing
@@ -364,13 +362,15 @@ function displayChart(data) {
             },
         });
         // Apply theme after data is set
-        applyTheme(themeSelector.value);
+        if (elements.themeSelect) {
+            applyTheme(elements.themeSelect.value);
+        }
     }
     catch (error) {
         console.error('Error creating or updating chart:', error);
         console.error('Chart object:', chart);
         console.error('Series object:', candlestickSeries);
-        chartContainer.innerHTML = `Error creating chart: ${error instanceof Error ? error.message : String(error)}`;
+        elements.chartContainer.innerHTML = `Error creating chart: ${error instanceof Error ? error.message : String(error)}`;
         if (chart) {
             chart.remove();
             chart = null;
@@ -378,47 +378,46 @@ function displayChart(data) {
         }
     }
 }
-// Add loader handling functions
-function showLoader() {
-    const loader = document.getElementById('loader');
-    if (loader) {
-        loader.classList.remove('hidden');
+function showLoader(elements) {
+    if (elements.loader) {
+        elements.loader.classList.remove('hidden');
     }
 }
-function hideLoader() {
-    const loader = document.getElementById('loader');
-    if (loader) {
-        loader.classList.add('hidden');
+function hideLoader(elements) {
+    if (elements.loader) {
+        elements.loader.classList.add('hidden');
     }
 }
-function loadDefaultData() {
+function loadDefaultData(elements) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            showLoader();
+            showLoader(elements);
             const response = yield fetch('data/default.csv');
             if (!response.ok) {
                 throw new Error(`Failed to load default.csv: ${response.statusText}`);
             }
             const csvText = yield response.text();
             const data = parseCSV(csvText);
-            displayChart(data);
+            displayChart(data, elements);
         }
         catch (error) {
             console.error("Error loading default data:", error);
-            chartContainer.innerHTML = `Error loading default data: ${error instanceof Error ? error.message : String(error)}`;
+            if (elements.chartContainer) {
+                elements.chartContainer.innerHTML = `Error loading default data: ${error instanceof Error ? error.message : String(error)}`;
+            }
             alert(`Error loading default data: ${error instanceof Error ? error.message : String(error)}`);
         }
         finally {
-            hideLoader();
+            hideLoader(elements);
         }
     });
 }
-function handleFileUpload(event) {
+function handleFileUpload(event, elements) {
     var _a;
     const target = event.target;
     const file = (_a = target.files) === null || _a === void 0 ? void 0 : _a[0];
     if (file) {
-        showLoader();
+        showLoader(elements);
         const reader = new FileReader();
         reader.onload = (e) => {
             var _a;
@@ -426,45 +425,38 @@ function handleFileUpload(event) {
                 const csvText = (_a = e.target) === null || _a === void 0 ? void 0 : _a.result;
                 const data = parseCSV(csvText);
                 if (data.length > 0) {
-                    displayChart(data);
+                    displayChart(data, elements);
                 }
                 else if (chart) {
                     chart.remove();
                     chart = null;
                     candlestickSeries = null;
-                    chartContainer.innerHTML = 'Failed to parse CSV or CSV is empty. Please check the format and content.';
+                    if (elements.chartContainer) {
+                        elements.chartContainer.innerHTML = 'Failed to parse CSV or CSV is empty. Please check the format and content.';
+                    }
                 }
             }
             catch (error) {
                 console.error("Error processing file:", error);
-                chartContainer.innerHTML = `Error processing file: ${error instanceof Error ? error.message : String(error)}`;
+                if (elements.chartContainer) {
+                    elements.chartContainer.innerHTML = `Error processing file: ${error instanceof Error ? error.message : String(error)}`;
+                }
             }
             finally {
-                hideLoader();
+                hideLoader(elements);
             }
         };
         reader.onerror = () => {
             alert("Error reading file.");
-            chartContainer.innerHTML = 'Error reading the uploaded file.';
-            hideLoader();
+            if (elements.chartContainer) {
+                elements.chartContainer.innerHTML = 'Error reading the uploaded file.';
+            }
+            hideLoader(elements);
         };
         reader.readAsText(file);
     }
 }
-// Event Listeners
-csvFileInput.addEventListener('change', handleFileUpload);
-themeSelector.addEventListener('change', () => {
-    applyTheme(themeSelector.value);
-});
-// Initial load
-document.addEventListener('DOMContentLoaded', () => {
-    if (!chartContainer) {
-        console.error("Chart container not found!");
-        return;
-    }
-    loadDefaultData();
-});
-// Tab Management
+// Order Book functions
 function initializeTabs() {
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabPanes = document.querySelectorAll('.tab-pane');
@@ -480,7 +472,6 @@ function initializeTabs() {
         });
     });
 }
-// Order Book Processing
 function loadDefaultBookData() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -567,26 +558,61 @@ function updateOrderTable(tableId, orders) {
 }
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
-    // ... existing initialization code ...
+    // Get all required elements
+    const elements = {
+        // Chart elements
+        chartContainer: document.getElementById('chartContainer'),
+        loader: document.getElementById('loader'),
+        themeSelect: document.getElementById('themeSelect'),
+        loadDefaultBtn: document.getElementById('loadDefaultBtn'),
+        csvFileInput: document.getElementById('csvFileInput'),
+        // Order book elements
+        loadDefaultBookBtn: document.getElementById('loadDefaultBookBtn'),
+        bookCsvFileInput: document.getElementById('bookCsvFileInput'),
+        bookLoader: document.getElementById('bookLoader'),
+        totalBids: document.getElementById('totalBids'),
+        totalAsks: document.getElementById('totalAsks'),
+        bidsFill: document.querySelector('.bids-fill'),
+        asksFill: document.querySelector('.asks-fill')
+    };
     // Initialize tabs
     initializeTabs();
-    // Order Book Event Listeners
-    const loadDefaultBookBtn = document.getElementById('loadDefaultBookBtn');
-    const bookCsvFileInput = document.getElementById('bookCsvFileInput');
-    loadDefaultBookBtn === null || loadDefaultBookBtn === void 0 ? void 0 : loadDefaultBookBtn.addEventListener('click', loadDefaultBookData);
-    bookCsvFileInput === null || bookCsvFileInput === void 0 ? void 0 : bookCsvFileInput.addEventListener('change', (event) => {
-        var _a;
-        const file = (_a = event.target.files) === null || _a === void 0 ? void 0 : _a[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                var _a;
-                const csvText = (_a = e.target) === null || _a === void 0 ? void 0 : _a.result;
-                processOrderBookData(csvText);
-            };
-            reader.readAsText(file);
-        }
-    });
-    // Load default book data on startup
+    // Chart event listeners
+    if (elements.loadDefaultBtn) {
+        elements.loadDefaultBtn.addEventListener('click', () => loadDefaultData(elements));
+    }
+    if (elements.csvFileInput) {
+        elements.csvFileInput.addEventListener('change', (event) => handleFileUpload(event, elements));
+    }
+    if (elements.themeSelect) {
+        elements.themeSelect.addEventListener('change', () => {
+            if (elements.themeSelect) {
+                applyTheme(elements.themeSelect.value);
+            }
+        });
+    }
+    // Order book event listeners
+    if (elements.loadDefaultBookBtn) {
+        elements.loadDefaultBookBtn.addEventListener('click', loadDefaultBookData);
+    }
+    if (elements.bookCsvFileInput) {
+        elements.bookCsvFileInput.addEventListener('change', (event) => {
+            var _a;
+            const file = (_a = event.target.files) === null || _a === void 0 ? void 0 : _a[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    var _a;
+                    const csvText = (_a = e.target) === null || _a === void 0 ? void 0 : _a.result;
+                    processOrderBookData(csvText);
+                };
+                reader.readAsText(file);
+            }
+        });
+    }
+    // Load initial data
+    if (elements.chartContainer) {
+        loadDefaultData(elements);
+    }
     loadDefaultBookData();
 });

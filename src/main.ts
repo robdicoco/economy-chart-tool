@@ -1,76 +1,85 @@
-// Use the CandlestickData interface as you defined
+// Interfaces and type definitions
 interface CandlestickData {
-    Date: Date; // Date object after parsing
+    Date: Date;
     Opening: number;
     Closing: number;
-    Variation: number; // Parsed, but not directly used by Lightweight Charts candlestick series
+    Variation: number;
     Minimum: number;
     Maximum: number;
-  }
-  
-  // Lightweight Charts specific data format
-  interface LightweightChartItem {
-    time: number; // Unix timestamp in seconds
+}
+
+interface LightweightChartItem {
+    time: number;
     open: number;
     high: number;
     low: number;
     close: number;
-  }
-  
-  // Global chart instance and series
-  let chart: any = null; // In a real app, use IChartApi from 'lightweight-charts'
-  let candlestickSeries: any = null; // In a real app, use ISeriesApi<'Candlestick'>
-  
-  const chartContainer = document.getElementById('chartContainer') as HTMLElement;
-  const csvFileInput = document.getElementById('csvFile') as HTMLInputElement;
-  const themeSelector = document.getElementById('themeSelector') as HTMLSelectElement;
-  
-  // Theme definitions
-  const themes = {
+}
+
+interface OrderBookEntry {
+    order: number;
+    type: 'Buy' | 'Sell';
+    quantity: number;
+    price: number;
+}
+
+interface ProcessedOrderBook {
+    bids: OrderBookEntry[];
+    asks: OrderBookEntry[];
+    totalBids: number;
+    totalAsks: number;
+}
+
+// Theme definitions
+const themes = {
     classic: {
-      chart: {
-        layout: {
-          background: { type: 'solid', color: '#191970' }, // Dark Blue
-          textColor: 'rgba(220, 220, 220, 0.9)',
+        chart: {
+            layout: {
+                background: { type: 'solid', color: '#191970' }, // Dark Blue
+                textColor: 'rgba(220, 220, 220, 0.9)',
+            },
+            grid: {
+                vertLines: { color: 'rgba(200, 200, 200, 0.3)' },
+                horzLines: { color: 'rgba(200, 200, 200, 0.3)' },
+            },
         },
-        grid: {
-          vertLines: { color: 'rgba(200, 200, 200, 0.3)' },
-          horzLines: { color: 'rgba(200, 200, 200, 0.3)' },
+        series: {
+            upColor: '#FFFFFF', // Inner white for positive
+            borderUpColor: '#000000', // Contour black for positive
+            wickUpColor: '#000000',
+            downColor: '#000000', // Inner black for negative
+            borderDownColor: '#FFFFFF', // Contour white for negative
+            wickDownColor: '#FFFFFF',
         },
-      },
-      series: {
-        upColor: '#FFFFFF', // Inner white for positive
-        borderUpColor: '#000000', // Contour black for positive
-        wickUpColor: '#000000',
-        downColor: '#000000', // Inner black for negative
-        borderDownColor: '#FFFFFF', // Contour white for negative
-        wickDownColor: '#FFFFFF',
-      },
     },
     modern: {
-      chart: {
-        layout: {
-          background: { type: 'solid', color: '#FFFFFF' }, // White
-          textColor: 'rgba(33, 56, 77, 1)',
+        chart: {
+            layout: {
+                background: { type: 'solid', color: '#FFFFFF' }, // White
+                textColor: 'rgba(33, 56, 77, 1)',
+            },
+            grid: {
+                vertLines: { color: 'rgba(230, 230, 230, 1)' },
+                horzLines: { color: 'rgba(230, 230, 230, 1)' },
+            },
         },
-        grid: {
-          vertLines: { color: 'rgba(230, 230, 230, 1)' },
-          horzLines: { color: 'rgba(230, 230, 230, 1)' },
+        series: {
+            upColor: '#26A69A', // Inner green for positive (TradingView green)
+            borderUpColor: '#FFFFFF', // Contour white for positive
+            wickUpColor: '#26A69A',
+            downColor: '#EF5350', // Inner red for negative (TradingView red)
+            borderDownColor: '#FFFFFF', // Contour white for negative
+            wickDownColor: '#EF5350',
         },
-      },
-      series: {
-        upColor: '#26A69A', // Inner green for positive (TradingView green)
-        borderUpColor: '#FFFFFF', // Contour white for positive
-        wickUpColor: '#26A69A',
-        downColor: '#EF5350', // Inner red for negative (TradingView red)
-        borderDownColor: '#FFFFFF', // Contour white for negative
-        wickDownColor: '#EF5350',
-      },
     },
-  };
-  
-  // Add date parsing helper function
-  function parseDate(dateStr: string): Date | null {
+};
+
+// Application state
+let chart: any = null;
+let candlestickSeries: any = null;
+
+// Helper functions
+function parseDate(dateStr: string): Date | null {
     // Remove any extra whitespace
     dateStr = dateStr.trim();
     
@@ -106,9 +115,9 @@ interface CandlestickData {
     // If none of the formats match, try the default Date constructor as fallback
     const date = new Date(dateStr);
     return !isNaN(date.getTime()) ? date : null;
-  }
-  
-  function parseCSV(csvText: string): CandlestickData[] {
+}
+
+function parseCSV(csvText: string): CandlestickData[] {
     const lines = csvText.trim().split('\n');
     if (lines.length < 2) {
         alert("CSV must have a header and at least one data row.");
@@ -233,9 +242,9 @@ interface CandlestickData {
     }
 
     return data;
-  }
-  
-  function formatDataForChart(data: CandlestickData[]): LightweightChartItem[] {
+}
+
+function formatDataForChart(data: CandlestickData[]): LightweightChartItem[] {
     const chartData = data
         .map(item => ({
             // Convert Date to Unix timestamp (seconds)
@@ -254,22 +263,42 @@ interface CandlestickData {
     }
 
     return chartData;
-  }
-  
-  function applyTheme(themeName: 'classic' | 'modern') {
+}
+
+function applyTheme(themeName: 'classic' | 'modern') {
     if (!chart || !candlestickSeries) return;
     const theme = themes[themeName];
     chart.applyOptions(theme.chart);
     candlestickSeries.applyOptions(theme.series);
-  }
-  
-  function displayChart(data: CandlestickData[]) {
-    if (!chartContainer) return;
+}
+
+// Define interfaces for all element types
+interface ChartElements {
+    // Chart elements
+    chartContainer: HTMLElement | null;
+    loader: HTMLElement | null;
+    themeSelect: HTMLSelectElement | null;
+    loadDefaultBtn: HTMLElement | null;
+    csvFileInput: HTMLInputElement | null;
+    
+    // Order book elements
+    loadDefaultBookBtn: HTMLElement | null;
+    bookCsvFileInput: HTMLInputElement | null;
+    bookLoader: HTMLElement | null;
+    totalBids: HTMLElement | null;
+    totalAsks: HTMLElement | null;
+    bidsFill: HTMLElement | null;
+    asksFill: HTMLElement | null;
+}
+
+// Update function signatures
+function displayChart(data: CandlestickData[], elements: ChartElements) {
+    if (!elements.chartContainer) return;
   
     // Check if LightweightCharts is available
     if (typeof LightweightCharts === 'undefined') {
         console.error('LightweightCharts library not loaded');
-        chartContainer.innerHTML = 'Error: Chart library not loaded. Please refresh the page.';
+        elements.chartContainer.innerHTML = 'Error: Chart library not loaded. Please refresh the page.';
         return;
     }
   
@@ -278,7 +307,7 @@ interface CandlestickData {
   
     const chartData = formatDataForChart(data);
     if (chartData.length === 0) {
-        chartContainer.innerHTML = 'No valid data to display.';
+        elements.chartContainer.innerHTML = 'No valid data to display.';
         if (chart) {
             chart.remove();
             chart = null;
@@ -295,8 +324,8 @@ interface CandlestickData {
                     background: { type: 'solid', color: themes.classic.chart.layout.background.color },
                 },
                 grid: themes.classic.chart.grid,
-                width: chartContainer.clientWidth,
-                height: chartContainer.clientHeight,
+                width: elements.chartContainer.clientWidth,
+                height: elements.chartContainer.clientHeight,
                 timeScale: {
                     timeVisible: true,
                     secondsVisible: false,
@@ -351,7 +380,7 @@ interface CandlestickData {
             };
             
             console.log('Creating chart with options:', chartOptions);
-            chart = LightweightCharts.createChart(chartContainer, chartOptions);
+            chart = LightweightCharts.createChart(elements.chartContainer, chartOptions);
             
             // Create series with explicit options
             const seriesOptions = {
@@ -375,14 +404,14 @@ interface CandlestickData {
             
             // Add resize handler
             const resizeObserver = new ResizeObserver(entries => {
-                if (entries.length === 0 || entries[0].target !== chartContainer) return;
+                if (entries.length === 0 || entries[0].target !== elements.chartContainer) return;
                 const newRect = entries[0].contentRect;
                 chart.applyOptions({ 
                     width: newRect.width,
                     height: newRect.height 
                 });
             });
-            resizeObserver.observe(chartContainer);
+            resizeObserver.observe(elements.chartContainer);
         }
         
         console.log('Setting chart data:', chartData);
@@ -397,7 +426,7 @@ interface CandlestickData {
         const totalDays = (lastBar.time - firstBar.time) / (24 * 60 * 60);
         
         // Calculate appropriate bar spacing based on data density
-        const containerWidth = chartContainer.clientWidth;
+        const containerWidth = elements.chartContainer.clientWidth;
         const availableWidth = containerWidth - 24; // Account for left/right offsets
         const calculatedBarSpacing = Math.max(2, Math.min(6, availableWidth / totalDays));
         
@@ -426,118 +455,96 @@ interface CandlestickData {
         });
         
         // Apply theme after data is set
-        applyTheme(themeSelector.value as 'classic' | 'modern');
+        if (elements.themeSelect) {
+            applyTheme(elements.themeSelect.value as 'classic' | 'modern');
+        }
     } catch (error) {
         console.error('Error creating or updating chart:', error);
         console.error('Chart object:', chart);
         console.error('Series object:', candlestickSeries);
-        chartContainer.innerHTML = `Error creating chart: ${error instanceof Error ? error.message : String(error)}`;
+        elements.chartContainer.innerHTML = `Error creating chart: ${error instanceof Error ? error.message : String(error)}`;
         if (chart) {
             chart.remove();
             chart = null;
             candlestickSeries = null;
         }
     }
-  }
-  
-  // Add loader handling functions
-  function showLoader() {
-    const loader = document.getElementById('loader');
-    if (loader) {
-        loader.classList.remove('hidden');
-    }
-  }
+}
 
-  function hideLoader() {
-    const loader = document.getElementById('loader');
-    if (loader) {
-        loader.classList.add('hidden');
+function showLoader(elements: { loader: HTMLElement | null }) {
+    if (elements.loader) {
+        elements.loader.classList.remove('hidden');
     }
-  }
+}
 
-  async function loadDefaultData() {
+function hideLoader(elements: { loader: HTMLElement | null }) {
+    if (elements.loader) {
+        elements.loader.classList.add('hidden');
+    }
+}
+
+async function loadDefaultData(elements: ChartElements) {
     try {
-        showLoader();
+        showLoader(elements);
         const response = await fetch('data/default.csv');
         if (!response.ok) {
             throw new Error(`Failed to load default.csv: ${response.statusText}`);
         }
         const csvText = await response.text();
         const data = parseCSV(csvText);
-        displayChart(data);
+        displayChart(data, elements);
     } catch (error) {
         console.error("Error loading default data:", error);
-        chartContainer.innerHTML = `Error loading default data: ${error instanceof Error ? error.message : String(error)}`;
+        if (elements.chartContainer) {
+            elements.chartContainer.innerHTML = `Error loading default data: ${error instanceof Error ? error.message : String(error)}`;
+        }
         alert(`Error loading default data: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
-        hideLoader();
+        hideLoader(elements);
     }
-  }
-  
-  function handleFileUpload(event: Event) {
+}
+
+function handleFileUpload(event: Event, elements: ChartElements) {
     const target = event.target as HTMLInputElement;
     const file = target.files?.[0];
     if (file) {
-        showLoader();
+        showLoader(elements);
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
                 const csvText = e.target?.result as string;
                 const data = parseCSV(csvText);
                 if (data.length > 0) {
-                    displayChart(data);
+                    displayChart(data, elements);
                 } else if (chart) {
                     chart.remove();
                     chart = null;
                     candlestickSeries = null;
-                    chartContainer.innerHTML = 'Failed to parse CSV or CSV is empty. Please check the format and content.';
+                    if (elements.chartContainer) {
+                        elements.chartContainer.innerHTML = 'Failed to parse CSV or CSV is empty. Please check the format and content.';
+                    }
                 }
             } catch (error) {
                 console.error("Error processing file:", error);
-                chartContainer.innerHTML = `Error processing file: ${error instanceof Error ? error.message : String(error)}`;
+                if (elements.chartContainer) {
+                    elements.chartContainer.innerHTML = `Error processing file: ${error instanceof Error ? error.message : String(error)}`;
+                }
             } finally {
-                hideLoader();
+                hideLoader(elements);
             }
         };
         reader.onerror = () => {
             alert("Error reading file.");
-            chartContainer.innerHTML = 'Error reading the uploaded file.';
-            hideLoader();
+            if (elements.chartContainer) {
+                elements.chartContainer.innerHTML = 'Error reading the uploaded file.';
+            }
+            hideLoader(elements);
         };
         reader.readAsText(file);
     }
-  }
-  
-  // Event Listeners
-  csvFileInput.addEventListener('change', handleFileUpload);
-  themeSelector.addEventListener('change', () => {
-    applyTheme(themeSelector.value as 'classic' | 'modern');
-  });
-  
-  // Initial load
-  document.addEventListener('DOMContentLoaded', () => {
-      if (!chartContainer) {
-          console.error("Chart container not found!");
-          return;
-      }
-      loadDefaultData();
-  });
-
-interface OrderBookEntry {
-    order: number;
-    type: 'Buy' | 'Sell';
-    quantity: number;
-    price: number;
 }
 
-interface ProcessedOrderBook {
-    bids: OrderBookEntry[];
-    asks: OrderBookEntry[];
-    totalBids: number;
-    totalAsks: number;
-}
-
-// Tab Management
+// Order Book functions
 function initializeTabs() {
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabPanes = document.querySelectorAll('.tab-pane');
@@ -556,7 +563,6 @@ function initializeTabs() {
     });
 }
 
-// Order Book Processing
 async function loadDefaultBookData() {
     try {
         const response = await fetch('data/default_bookoffers.csv');
@@ -609,7 +615,7 @@ function processOrders(orders: OrderBookEntry[]): ProcessedOrderBook {
 }
 
 function displayOrderBook(book: ProcessedOrderBook) {
-    // Update summary
+    // Update summary values
     const totalBidsElement = document.getElementById('totalBids');
     const totalAsksElement = document.getElementById('totalAsks');
     const bidsFill = document.querySelector('.bids-fill') as HTMLElement;
@@ -619,8 +625,18 @@ function displayOrderBook(book: ProcessedOrderBook) {
     if (totalAsksElement) totalAsksElement.textContent = book.totalAsks.toString();
 
     const total = book.totalBids + book.totalAsks;
-    if (bidsFill) bidsFill.style.width = `${(book.totalBids / total) * 100}%`;
-    if (asksFill) asksFill.style.width = `${(book.totalAsks / total) * 100}%`;
+    const bidsPercentage = (book.totalBids / total) * 100;
+    const asksPercentage = (book.totalAsks / total) * 100;
+
+    // Update bar widths and tooltips
+    if (bidsFill) {
+        bidsFill.style.width = `${bidsPercentage}%`;
+        bidsFill.setAttribute('data-tooltip', `Bids: ${bidsPercentage.toFixed(1)}%`);
+    }
+    if (asksFill) {
+        asksFill.style.width = `${asksPercentage}%`;
+        asksFill.setAttribute('data-tooltip', `Asks: ${asksPercentage.toFixed(1)}%`);
+    }
 
     // Update tables
     updateOrderTable('bidsTable', book.bids);
@@ -648,29 +664,67 @@ function updateOrderTable(tableId: string, orders: OrderBookEntry[]) {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
-    // ... existing initialization code ...
+    // Get all required elements
+    const elements: ChartElements = {
+        // Chart elements
+        chartContainer: document.getElementById('chartContainer'),
+        loader: document.getElementById('loader'),
+        themeSelect: document.getElementById('themeSelect') as HTMLSelectElement,
+        loadDefaultBtn: document.getElementById('loadDefaultBtn'),
+        csvFileInput: document.getElementById('csvFileInput') as HTMLInputElement,
+        
+        // Order book elements
+        loadDefaultBookBtn: document.getElementById('loadDefaultBookBtn'),
+        bookCsvFileInput: document.getElementById('bookCsvFileInput') as HTMLInputElement,
+        bookLoader: document.getElementById('bookLoader'),
+        totalBids: document.getElementById('totalBids'),
+        totalAsks: document.getElementById('totalAsks'),
+        bidsFill: document.querySelector('.bids-fill') as HTMLElement,
+        asksFill: document.querySelector('.asks-fill') as HTMLElement
+    };
 
     // Initialize tabs
     initializeTabs();
 
-    // Order Book Event Listeners
-    const loadDefaultBookBtn = document.getElementById('loadDefaultBookBtn');
-    const bookCsvFileInput = document.getElementById('bookCsvFileInput') as HTMLInputElement;
+    // Chart event listeners
+    if (elements.loadDefaultBtn) {
+        elements.loadDefaultBtn.addEventListener('click', () => loadDefaultData(elements));
+    }
 
-    loadDefaultBookBtn?.addEventListener('click', loadDefaultBookData);
+    if (elements.csvFileInput) {
+        elements.csvFileInput.addEventListener('change', (event: Event) => handleFileUpload(event, elements));
+    }
 
-    bookCsvFileInput?.addEventListener('change', (event) => {
-        const file = (event.target as HTMLInputElement).files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const csvText = e.target?.result as string;
-                processOrderBookData(csvText);
-            };
-            reader.readAsText(file);
-        }
-    });
+    if (elements.themeSelect) {
+        elements.themeSelect.addEventListener('change', () => {
+            if (elements.themeSelect) {
+                applyTheme(elements.themeSelect.value as 'classic' | 'modern');
+            }
+        });
+    }
 
-    // Load default book data on startup
+    // Order book event listeners
+    if (elements.loadDefaultBookBtn) {
+        elements.loadDefaultBookBtn.addEventListener('click', loadDefaultBookData);
+    }
+
+    if (elements.bookCsvFileInput) {
+        elements.bookCsvFileInput.addEventListener('change', (event: Event) => {
+            const file = (event.target as HTMLInputElement).files?.[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const csvText = e.target?.result as string;
+                    processOrderBookData(csvText);
+                };
+                reader.readAsText(file);
+            }
+        });
+    }
+
+    // Load initial data
+    if (elements.chartContainer) {
+        loadDefaultData(elements);
+    }
     loadDefaultBookData();
 });
