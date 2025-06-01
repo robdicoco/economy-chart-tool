@@ -16,6 +16,7 @@
     <div class="tabs">
         <button class="tab-button active" data-tab="market-view">Market View</button>
         <button class="tab-button" data-tab="book-viewer">Book Viewer</button>
+        <button class="tab-button" data-tab="supply-demand">Supply & Demand</button>
     </div>
 
     <div class="tab-content">
@@ -109,6 +110,39 @@
                             </thead>
                             <tbody></tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Supply & Demand Tab -->
+        <div id="supply-demand" class="tab-pane">
+            <div class="controls">
+                <div class="control-group">
+                    <button id="loadDefaultSupplyDemandBtn">Load Default Data</button>
+                    <input type="file" id="supplyDemandCsvFileInput" accept=".csv">
+                    <label for="supplyDemandCsvFileInput" class="file-input-label">Load CSV File</label>
+                </div>
+            </div>
+
+            <div class="supply-demand-section">
+                <h2>Supply & Demand Analysis</h2>
+                <div id="supplyDemandLoader" class="loader hidden">
+                    <div class="spinner"></div>
+                    <p>Loading supply and demand data...</p>
+                </div>
+                <div id="supplyDemandContainer"></div>
+                <div class="equilibrium-info">
+                    <h3>Equilibrium Point</h3>
+                    <div class="equilibrium-details">
+                        <div class="detail-item">
+                            <span>Price:</span>
+                            <span id="equilibriumPrice">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span>Quantity:</span>
+                            <span id="equilibriumQuantity">-</span>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -437,3 +437,90 @@ body.modern-theme .bar-fill:hover::before {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Supply & Demand section */
+.supply-demand-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    min-height: 0; /* Important for flex child */
+}
+
+.supply-demand-section h2 {
+    text-align: center;
+    margin: 0 0 1rem 0;
+    color: #fff;
+}
+
+#supplyDemandContainer {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    background-color: #191970;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.equilibrium-info {
+    background-color: #3a3a3a;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.equilibrium-info h3 {
+    margin: 0 0 1rem 0;
+    color: #fff;
+    text-align: center;
+    font-size: 1.2rem;
+}
+
+.equilibrium-details {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.detail-item span:first-child {
+    opacity: 0.8;
+}
+
+.detail-item span:last-child {
+    font-weight: 500;
+    color: #4CAF50;
+}
+
+/* Modern theme adjustments */
+body.modern-theme .supply-demand-section h2,
+body.modern-theme .equilibrium-info h3 {
+    color: #333;
+}
+
+body.modern-theme .equilibrium-info {
+    background-color: #f5f5f5;
+}
+
+body.modern-theme .detail-item span:last-child {
+    color: #26A69A;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .equilibrium-details {
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .detail-item {
+        justify-content: center;
+    }
+}

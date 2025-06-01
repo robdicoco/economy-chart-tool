@@ -30,6 +30,18 @@ interface ProcessedOrderBook {
     totalAsks: number;
 }
 
+// Add new interfaces
+interface SupplyDemandData {
+    price: number;
+    quantityDemanded: number;
+    quantitySupplied: number;
+}
+
+interface EquilibriumPoint {
+    price: number;
+    quantity: number;
+}
+
 // Theme definitions
 const themes = {
     classic: {
@@ -289,6 +301,14 @@ interface ChartElements {
     totalAsks: HTMLElement | null;
     bidsFill: HTMLElement | null;
     asksFill: HTMLElement | null;
+    
+    // Supply & Demand elements
+    loadDefaultSupplyDemandBtn: HTMLElement | null;
+    supplyDemandCsvFileInput: HTMLInputElement | null;
+    supplyDemandLoader: HTMLElement | null;
+    supplyDemandContainer: HTMLElement | null;
+    equilibriumPrice: HTMLElement | null;
+    equilibriumQuantity: HTMLElement | null;
 }
 
 // Update function signatures
@@ -687,6 +707,277 @@ function updateOrderTable(tableId: string, orders: OrderBookEntry[]) {
     });
 }
 
+// Add new functions for supply and demand
+function parseSupplyDemandCSV(csvText: string): SupplyDemandData[] {
+    const lines = csvText.trim().split('\n');
+    if (lines.length < 2) {
+        alert("CSV must have a header and at least one data row.");
+        return [];
+    }
+
+    const header = lines[0].split(',').map(h => h.trim());
+    const expectedHeaders = ["Price (R$)", "Quantity Demanded (tons)", "Quantity Supplied (tons)"];
+    
+    if (JSON.stringify(header) !== JSON.stringify(expectedHeaders)) {
+        alert(`CSV header mismatch. Expected: ${expectedHeaders.join(',')}\nGot: ${header.join(',')}`);
+        return [];
+    }
+
+    const data: SupplyDemandData[] = [];
+    const invalidRows: number[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const [price, quantityDemanded, quantitySupplied] = line.split(',').map(val => 
+            parseFloat(val.trim().replace(',', '.'))
+        );
+
+        if (isNaN(price) || isNaN(quantityDemanded) || isNaN(quantitySupplied)) {
+            console.warn(`Invalid numeric values in row ${i + 1}:`, { price, quantityDemanded, quantitySupplied });
+            invalidRows.push(i + 1);
+            continue;
+        }
+
+        data.push({ price, quantityDemanded, quantitySupplied });
+    }
+
+    if (invalidRows.length > 0) {
+        const message = `Warning: ${invalidRows.length} row(s) had invalid data and were skipped (rows: ${invalidRows.join(', ')}).`;
+        console.warn(message);
+        if (invalidRows.length < 10) {
+            alert(message);
+        }
+    }
+
+    return data.sort((a, b) => a.price - b.price);
+}
+
+function findEquilibriumPoint(data: SupplyDemandData[]): EquilibriumPoint | null {
+    for (let i = 0; i < data.length - 1; i++) {
+        const current = data[i];
+        const next = data[i + 1];
+
+        // Check if equilibrium point exists between these two points
+        if (current.quantityDemanded >= current.quantitySupplied && 
+            next.quantityDemanded <= next.quantitySupplied) {
+            
+            // Linear interpolation to find exact equilibrium point
+            const priceDiff = next.price - current.price;
+            const demandDiff = current.quantityDemanded - next.quantityDemanded;
+            const supplyDiff = next.quantitySupplied - current.quantitySupplied;
+            
+            const t = (current.quantityDemanded - current.quantitySupplied) / 
+                     (demandDiff + supplyDiff);
+            
+            const equilibriumPrice = current.price + (priceDiff * t);
+            const equilibriumQuantity = current.quantityDemanded - (demandDiff * t);
+            
+            return {
+                price: Number(equilibriumPrice.toFixed(2)),
+                quantity: Number(equilibriumQuantity.toFixed(2))
+            };
+        }
+    }
+    return null;
+}
+
+function displaySupplyDemandGraph(data: SupplyDemandData[], elements: ChartElements) {
+    if (!elements.supplyDemandContainer) return;
+
+    // Check if LightweightCharts is available
+    if (typeof LightweightCharts === 'undefined') {
+        console.error('LightweightCharts library not loaded');
+        elements.supplyDemandContainer.innerHTML = 'Error: Chart library not loaded. Please refresh the page.';
+        return;
+    }
+
+    try {
+        // Create chart
+        const chart = LightweightCharts.createChart(elements.supplyDemandContainer, {
+            layout: {
+                background: { type: 'solid', color: '#191970' },
+                textColor: 'rgba(220, 220, 220, 0.9)',
+            },
+            grid: {
+                vertLines: { color: 'rgba(200, 200, 200, 0.3)' },
+                horzLines: { color: 'rgba(200, 200, 200, 0.3)' },
+            },
+            width: elements.supplyDemandContainer.clientWidth,
+            height: elements.supplyDemandContainer.clientHeight,
+            rightPriceScale: {
+                borderColor: 'rgba(197, 203, 206, 0.8)',
+                scaleMargins: {
+                    top: 0.1,
+                    bottom: 0.1,
+                },
+                title: 'Quantity (tons)',
+                autoScale: true,
+                mode: LightweightCharts.PriceScaleMode.Normal,
+            },
+            leftPriceScale: {
+                visible: false,
+            },
+            timeScale: {
+                title: 'Price (R$)',
+                timeVisible: false,
+                secondsVisible: false,
+                borderColor: 'rgba(197, 203, 206, 0.8)',
+                tickMarkFormatter: (time: number) => {
+                    return time.toFixed(2);
+                },
+            },
+        });
+
+        // Create series for demand and supply
+        const demandSeries = chart.addLineSeries({
+            color: '#4CAF50',
+            lineWidth: 2,
+            title: 'Demand',
+            priceFormat: {
+                type: 'price',
+                precision: 0,
+                minMove: 1,
+            },
+        });
+
+        const supplySeries = chart.addLineSeries({
+            color: '#f44336',
+            lineWidth: 2,
+            title: 'Supply',
+            priceFormat: {
+                type: 'price',
+                precision: 0,
+                minMove: 1,
+            },
+        });
+
+        // Prepare data for the chart, filtering out invalid points
+        // Use price as x-axis (time) and quantities as y-axis (value)
+        const demandData = data
+            .filter(item => 
+                typeof item.price === 'number' && 
+                typeof item.quantityDemanded === 'number' && 
+                !isNaN(item.price) && 
+                !isNaN(item.quantityDemanded)
+            )
+            .map(item => ({
+                time: item.price,
+                value: item.quantityDemanded,
+            }))
+            .sort((a, b) => a.time - b.time); // Sort by price
+
+        const supplyData = data
+            .filter(item => 
+                typeof item.price === 'number' && 
+                typeof item.quantitySupplied === 'number' && 
+                !isNaN(item.price) && 
+                !isNaN(item.quantitySupplied)
+            )
+            .map(item => ({
+                time: item.price,
+                value: item.quantitySupplied,
+            }))
+            .sort((a, b) => a.time - b.time); // Sort by price
+
+        // Set data
+        demandSeries.setData(demandData);
+        supplySeries.setData(supplyData);
+
+        // Find and display equilibrium point
+        const equilibrium = findEquilibriumPoint(data);
+        if (equilibrium) {
+            // Update equilibrium info display
+            if (elements.equilibriumPrice) {
+                elements.equilibriumPrice.textContent = `R$ ${equilibrium.price}`;
+            }
+            if (elements.equilibriumQuantity) {
+                elements.equilibriumQuantity.textContent = `${equilibrium.quantity} tons`;
+            }
+
+            // Add equilibrium point marker
+            const equilibriumSeries = chart.addLineSeries({
+                color: '#FFD700',
+                lineWidth: 1,
+                lineStyle: 2, // Dashed line
+                title: 'Equilibrium',
+            });
+
+            equilibriumSeries.setData([
+                { time: equilibrium.price, value: equilibrium.quantity },
+            ]);
+        }
+
+        // Calculate visible range
+        const allPrices = [...demandData, ...supplyData].map(d => d.time);
+        const allQuantities = [...demandData, ...supplyData].map(d => d.value);
+        const minPrice = Math.min(...allPrices);
+        const maxPrice = Math.max(...allPrices);
+        const maxQuantity = Math.max(...allQuantities);
+
+        // Set visible range with padding
+        chart.timeScale().setVisibleRange({
+            from: 0, // Start from 0
+            to: maxPrice + 1, // Add 1 to max price for padding
+        });
+
+        // Set price scale range
+        chart.priceScale('right').applyOptions({
+            autoScale: false,
+            scaleMargins: {
+                top: 0.1,
+                bottom: 0.1,
+            },
+            minimum: 0,
+            maximum: maxQuantity + 10, // Add 10 to max quantity for padding
+        });
+
+        // Add resize handler
+        const resizeObserver = new ResizeObserver(entries => {
+            if (entries.length === 0 || entries[0].target !== elements.supplyDemandContainer) return;
+            const newRect = entries[0].contentRect;
+            chart.applyOptions({ 
+                width: newRect.width,
+                height: newRect.height 
+            });
+        });
+        resizeObserver.observe(elements.supplyDemandContainer);
+
+    } catch (error) {
+        console.error('Error creating supply and demand chart:', error);
+        if (elements.supplyDemandContainer) {
+            elements.supplyDemandContainer.innerHTML = `Error creating chart: ${error instanceof Error ? error.message : String(error)}`;
+        }
+    }
+}
+
+async function loadDefaultSupplyDemandData(elements: ChartElements) {
+    try {
+        if (elements.supplyDemandLoader) {
+            elements.supplyDemandLoader.classList.remove('hidden');
+        }
+
+        const response = await fetch('data/default_supply_demand.csv');
+        if (!response.ok) {
+            throw new Error(`Failed to load default_supply_demand.csv: ${response.statusText}`);
+        }
+        const csvText = await response.text();
+        const data = parseSupplyDemandCSV(csvText);
+        displaySupplyDemandGraph(data, elements);
+    } catch (error) {
+        console.error("Error loading default supply and demand data:", error);
+        if (elements.supplyDemandContainer) {
+            elements.supplyDemandContainer.innerHTML = `Error loading default data: ${error instanceof Error ? error.message : String(error)}`;
+        }
+        alert(`Error loading default data: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+        if (elements.supplyDemandLoader) {
+            elements.supplyDemandLoader.classList.add('hidden');
+        }
+    }
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
     // Get all required elements
@@ -705,7 +996,15 @@ document.addEventListener('DOMContentLoaded', () => {
         totalBids: document.getElementById('totalBids'),
         totalAsks: document.getElementById('totalAsks'),
         bidsFill: document.querySelector('.bids-fill') as HTMLElement,
-        asksFill: document.querySelector('.asks-fill') as HTMLElement
+        asksFill: document.querySelector('.asks-fill') as HTMLElement,
+        
+        // Supply & Demand elements
+        loadDefaultSupplyDemandBtn: document.getElementById('loadDefaultSupplyDemandBtn'),
+        supplyDemandCsvFileInput: document.getElementById('supplyDemandCsvFileInput') as HTMLInputElement,
+        supplyDemandLoader: document.getElementById('supplyDemandLoader'),
+        supplyDemandContainer: document.getElementById('supplyDemandContainer'),
+        equilibriumPrice: document.getElementById('equilibriumPrice'),
+        equilibriumQuantity: document.getElementById('equilibriumQuantity'),
     };
 
     // Initialize tabs
@@ -747,9 +1046,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Supply & Demand event listeners
+    if (elements.loadDefaultSupplyDemandBtn) {
+        elements.loadDefaultSupplyDemandBtn.addEventListener('click', () => loadDefaultSupplyDemandData(elements));
+    }
+
+    if (elements.supplyDemandCsvFileInput) {
+        elements.supplyDemandCsvFileInput.addEventListener('change', (event: Event) => {
+            const file = (event.target as HTMLInputElement).files?.[0];
+            if (file) {
+                if (elements.supplyDemandLoader) {
+                    elements.supplyDemandLoader.classList.remove('hidden');
+                }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const csvText = e.target?.result as string;
+                        const data = parseSupplyDemandCSV(csvText);
+                        displaySupplyDemandGraph(data, elements);
+                    } catch (error) {
+                        console.error("Error processing file:", error);
+                        if (elements.supplyDemandContainer) {
+                            elements.supplyDemandContainer.innerHTML = `Error processing file: ${error instanceof Error ? error.message : String(error)}`;
+                        }
+                    } finally {
+                        if (elements.supplyDemandLoader) {
+                            elements.supplyDemandLoader.classList.add('hidden');
+                        }
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+    }
+
     // Load initial data
     if (elements.chartContainer) {
         loadDefaultData(elements);
     }
     loadDefaultBookData();
+    loadDefaultSupplyDemandData(elements);
 });
